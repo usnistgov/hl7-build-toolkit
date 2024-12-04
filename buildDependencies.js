@@ -71,9 +71,9 @@ const main = async () => {
       // Read and process the initial dependencies.json
       console.log("Reading dependencies.json from  main project...");
       const dependencies = JSON.parse(fs.readFileSync(dependenciesFilePath, "utf-8"));
-
-      await runCommand(`mkdir dependencies`);
-      const buildDependenciesPath = path.join(baseDir, "dependencies");
+      const timestamp = new Date().getTime();
+      await runCommand(`mkdir dependencies_${timestamp}`);
+      const buildDependenciesPath = path.join(baseDir, `dependencies_${timestamp}`);
       await buildDependencies(dependencies, buildDependenciesPath);
     }
     process.chdir(path.join(baseDir, target));
