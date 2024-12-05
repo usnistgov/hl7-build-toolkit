@@ -1,18 +1,28 @@
-const { exec } = require("child_process");
+const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-// Function to execute shell commands without displaying output
-const runCommand = (command, options = {}) => {
+const runCommand = (command, args = [], options = {}) => {
   return new Promise((resolve, reject) => {
-    const process = exec(command, options, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error executing: ${command}`);
-        console.error(`Error message: ${error.message}`);
+    const process = spawn(command, args, options);
+
+    let stdout = "";
+    let stderr = "";
+
+    process.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    process.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    process.on("close", (code) => {
+      if (code !== 0) {
+        console.error(`Error executing: ${command} ${args.join(" ")}`);
         console.error(`Stderr: ${stderr}`);
-        return reject(error);
+        return reject(new Error(`Command exited with code ${code}`));
       }
-      // Suppress stdout and stderr in normal cases
       resolve(stdout);
     });
   });
@@ -33,8 +43,7 @@ const buildDependencies = async (dependencies, dependenciesFolderPath) => {
       // Clone the repository
       console.log(`Cloning ${url}...`);
       const repoPath = path.join(dependenciesFolderPath, repoName);
-      await runCommand(`git clone -b ${branch} ${url}`);
-
+      await runCommand("git", ["clone", "-b", branch, url]);
 
       // Check for dependencies.json in the cloned repo
       const dependenciesFilePath = path.join(repoPath, "dependencies.json");
@@ -43,11 +52,13 @@ const buildDependencies = async (dependencies, dependenciesFolderPath) => {
         const nestedDependencies = JSON.parse(fs.readFileSync(dependenciesFilePath, "utf-8"));
         await buildDependencies(nestedDependencies, dependenciesFolderPath); // Use baseDir for nested dependencies
       }
+
       // Change directory to cloned repo
       process.chdir(repoPath);
+
       // Run the build script
       console.log(`Running build script for ${repoName}...`);
-      await runCommand(`bash buildScript.sh`);
+      await runCommand("bash", ["buildScript.sh"]);
 
       // Return to the original directory
       process.chdir(dependenciesFolderPath);
@@ -69,18 +80,16 @@ const main = async () => {
 
     if (fs.existsSync(dependenciesFilePath)) {
       // Read and process the initial dependencies.json
-      console.log("Reading dependencies.json from  main project...");
+      console.log("Reading dependencies.json from main project...");
       const dependencies = JSON.parse(fs.readFileSync(dependenciesFilePath, "utf-8"));
       const timestamp = new Date().getTime();
-      await runCommand(`mkdir dependencies_${timestamp}`);
+      await runCommand("mkdir", [`dependencies_${timestamp}`]);
       const buildDependenciesPath = path.join(baseDir, `dependencies_${timestamp}`);
       await buildDependencies(dependencies, buildDependenciesPath);
     }
     process.chdir(path.join(baseDir, target));
     console.log(`Running build script for main project...`);
-    await runCommand(`bash buildScript.sh`);
-
-
+    await runCommand("bash", ["buildScript.sh"]);
   } catch (error) {
     console.error(`Failed to process main project: ${error.message}`);
   }
