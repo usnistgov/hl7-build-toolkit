@@ -6,27 +6,26 @@ const runCommand = (command, args = [], options = {}) => {
   return new Promise((resolve, reject) => {
     const process = spawn(command, args, options);
 
-    let stdout = "";
-    let stderr = "";
-
+    // Display stdout in real-time
     process.stdout.on("data", (data) => {
-      stdout += data.toString();
+      console.log(`[${command} stdout]: ${data.toString().trim()}`);
     });
 
+    // Display stderr in real-time
     process.stderr.on("data", (data) => {
-      stderr += data.toString();
+      console.error(`[${command} stderr]: ${data.toString().trim()}`);
     });
 
     process.on("close", (code) => {
       if (code !== 0) {
         console.error(`Error executing: ${command} ${args.join(" ")}`);
-        console.error(`Stderr: ${stderr}`);
         return reject(new Error(`Command exited with code ${code}`));
       }
-      resolve(stdout);
+      resolve(); // Resolve without returning any output
     });
   });
 };
+
 
 // Function to recursively build dependencies
 const buildDependencies = async (dependencies, dependenciesFolderPath) => {
